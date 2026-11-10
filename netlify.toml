@@ -1,0 +1,51 @@
+# Netlify settings. Static files are served from public/, the API is one
+# function (netlify/functions/api.mjs) mounted at /api/*.
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+  command = ""
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[functions]
+  node_bundler = "esbuild"
+
+# The app is one HTML page; these addresses are screens inside it.
+[[redirects]]
+  from = "/calculator"
+  to = "/index.html"
+  status = 200
+[[redirects]]
+  from = "/apply"
+  to = "/index.html"
+  status = 200
+[[redirects]]
+  from = "/demo"
+  to = "/index.html"
+  status = 200
+[[redirects]]
+  from = "/team"
+  to = "/index.html"
+  status = 200
+[[redirects]]
+  from = "/team/*"
+  to = "/index.html"
+  status = 200
+[[redirects]]
+  from = "/report"
+  to = "/index.html"
+  status = 200
+[[redirects]]
+  from = "/report/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "same-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+    X-Frame-Options = "DENY"
