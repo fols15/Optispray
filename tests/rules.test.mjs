@@ -7,7 +7,8 @@ test("fixed figures match the brief", () => {
   assert.equal(R.KIT_PRICE[36], 14_300_000);
   assert.equal(R.KIT_PRICE[24], 10_300_000);
   assert.equal(R.VAT_RATE, 0.16);
-  assert.equal(R.HERBICIDE_COST, 5500);
+  assert.equal(R.HERBICIDE_COST, 6000);
+  assert.deepEqual(R.THRESHOLD_HA, { 24: 2900, 36: 4000 });
   assert.equal(R.PAYBACK_LIMIT, 2);
   assert.equal(R.MAX_SAVING, 0.41);
   assert.deepEqual(R.SAVING_RATES, [0.3, 0.4]);
@@ -22,11 +23,14 @@ test("payback = price / (hectares x cost x rate), at 30% and 40%", () => {
   assert.equal(p.belowThreshold, false);
 });
 
-test("the brief's thresholds give a two-season payback at 30% and 5,500 KZT/ha", () => {
-  assert.ok(Math.abs(R.payback(24, 3100, 5500).rows[0].seasons - 2) < 0.02);
-  assert.ok(Math.abs(R.payback(36, 4300, 5500).rows[0].seasons - 2) < 0.02);
-  assert.equal(R.payback(24, 3100, 5500).thresholdAtYourCost, 3100);
-  assert.equal(R.payback(36, 4300, 5500).thresholdAtYourCost, 4300);
+test("the brief's thresholds give about a two-season payback at 30% and 6,000 KZT/ha", () => {
+  // exact two-season areas: 10.3 M / (2 x 6,000 x 0.3) = 2,861 ha; 14.3 M / 3,600 = 3,972 ha
+  assert.ok(Math.abs(R.payback(24, 2900, 6000).rows[0].seasons - 2) < 0.03);
+  assert.ok(Math.abs(R.payback(36, 4000, 6000).rows[0].seasons - 2) < 0.03);
+  assert.equal(R.payback(24, 1000, 6000).thresholdAtYourCost, R.THRESHOLD_HA[24]);
+  assert.equal(R.payback(36, 1000, 6000).thresholdAtYourCost, R.THRESHOLD_HA[36]);
+  assert.equal(R.payback(24, 2800, 6000).belowThreshold, true);
+  assert.equal(R.payback(24, 2900, 6000).belowThreshold, false);
 });
 
 test("a farm below the threshold is flagged, judged at 30%", () => {
@@ -88,7 +92,7 @@ test("shift results: saving, tenge and spot share", () => {
   const x = R.shiftResults(r.value);
   assert.equal(x.broadcastLitres, 400);
   assert.ok(Math.abs(x.saving - 0.35) < 1e-9);
-  assert.equal(x.tengeSaved, Math.round(200 * 5500 * 0.35));
+  assert.equal(x.tengeSaved, Math.round(200 * 6000 * 0.35));
   assert.equal(x.spotShare, 450 / 480);
   assert.equal(x.passesSaving, true);
   assert.equal(x.passesSpotShare, true);

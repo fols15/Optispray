@@ -66,8 +66,9 @@ async function journey(lang) {
   await page.fill("#c-ha", "3000");
   await page.click('#calc-form button[type="submit"]');
   main = await text();
-  ok(lang === "en" ? /Above the two-season limit/.test(main) && /3,100 ha/.test(main) && /4,300 ha/.test(main)
-    : /шектен асады/.test(main) && /3 100/.test(main) && /4 300/.test(main), "3. below threshold gives an explicit warning with thresholds");
+  ok(lang === "en" ? /Above the two-season limit/.test(main) && /2,900 ha/.test(main) && /4,000 ha/.test(main)
+    : /шектен асады/.test(main) && /2 900/.test(main) && /4 000/.test(main), "3. below threshold gives an explicit warning with thresholds");
+  ok(lang === "en" ? /your herbicide cost the 36 m kit needs about 4,300 ha/.test(main) : /4\s300\sга/.test(main), "3. threshold at the farm's own cost (5,500 KZT) shown");
   await page.fill("#c-ha", "6000");
   await page.waitForTimeout(100);
   main = await text();
@@ -141,7 +142,7 @@ async function journey(lang) {
   await op.goto(link);
   await op.waitForSelector(".checks");
   const rep = await op.locator("main").innerText();
-  ok(/35[.,]0%/.test(rep) && /90%/.test(rep) && /48/.test(rep) && (lang === "en" ? /385,000/.test(rep) : /385\s000/.test(rep)), "owner opens the report by link without login: 35%, 385,000 KZT");
+  ok(/35[.,]0%/.test(rep) && /90%/.test(rep) && /48/.test(rep) && (lang === "en" ? /420,000/.test(rep) : /420\s000/.test(rep)), "owner opens the report by link without login: 35%, 420,000 KZT");
   await owner.close();
   await page.goto(link); await page.waitForSelector(".checks");
   await audit("report");
@@ -157,6 +158,11 @@ async function journey(lang) {
   await page.waitForSelector(".sim .big");
   main = await text();
   ok(lang === "en" ? /simulation, not live hardware/.test(main) : /симуляция/.test(main), "demo labelled as a simulation");
+  ok((await page.locator('.sim input[type="range"]').count()) === 0, "no numbered sensitivity slider in the demo");
+  const hint1 = await page.locator("#preset-hint").innerText();
+  await page.click('#preset button[data-v="pre"]');
+  const hint2 = await page.locator("#preset-hint").innerText();
+  ok(hint1.length > 10 && hint2 !== hint1 && (await page.getAttribute('#preset button[data-v="pre"]', "aria-pressed")) === "true", "named preset sets the sensitivity and says what it does");
   await page.click("#btn-start"); await page.waitForTimeout(1200);
   const share = parseInt(await page.locator("#r-share").innerText(), 10);
   ok(share >= 59, `demo never implies a saving above 41% (sprayed share ${share}%)`);

@@ -181,7 +181,7 @@ input[type="text"], input[type="password"], input[type="date"], select, .linkbox
   .rate-cards { grid-template-columns: 1fr; }
   .kv { grid-template-columns: 1fr; }
   .kv dd { margin-bottom: 6px; }
-  .sim .kv { grid-template-columns: auto 1fr; }
+  .sim .kv { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .sim .kv dd { margin-bottom: 0; }
   .btn { width: 100%; }
   .tabs .btn-quiet, .lang button { width: auto; }
@@ -220,7 +220,7 @@ input[type="text"], input[type="password"], input[type="date"], select, .linkbox
 .sim .cseg button { background: var(--c-panel2); border: 1px solid #4A5740; border-radius: 10px; min-height: 48px; padding: 6px; color: var(--c-dim); cursor: pointer; font-weight: 600; font-size: 13px; line-height: 1.25; }
 .sim .cseg button[aria-pressed="true"] { border-color: var(--c-ok); color: var(--c-ink); box-shadow: inset 0 0 0 2px var(--c-ok); }
 .sim .kv dt { color: var(--c-dim); }
-.sim .kv dd { text-align: right; }
+.sim .kv dd { text-align: right; overflow-wrap: break-word; }
 .sim .ok { color: var(--c-ok); } .sim .warn { color: var(--c-warn); } .sim .dim { color: var(--c-dim); }
 .sim .small { font-size: 14px; margin: 8px 0 0; }
 .sim .big { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 56px; border: 0; border-radius: 14px; font-size: 18px; font-weight: 700; cursor: pointer; background: var(--c-ok); color: #0D150A; }

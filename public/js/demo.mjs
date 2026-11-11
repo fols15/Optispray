@@ -2,6 +2,7 @@
 // Everything here is generated sample data. Nothing is measured, saved or sent.
 // Text comes from i18n.mjs (keys starting with "sim.").
 import { formatNumber } from "./i18n.mjs";
+import { HERBICIDE_COST } from "./rules.mjs";
 
 const MAP_THRESHOLD = 0.23;   // gives a sample map with about 62% of the field sprayed
 const SAMPLE_SHARE = 0.62;    // sprayed share in the sample report (38% saving, below the 41% maximum)
@@ -44,10 +45,11 @@ function markup() {
                 </div>
                 <span class="lbl gap" ${T("preset")}></span>
                 <div class="cseg" id="preset">
-                  <button type="button" aria-pressed="true" ${T("pStubble")}></button>
-                  <button type="button" aria-pressed="false" ${T("pFallow")}></button>
-                  <button type="button" aria-pressed="false" ${T("pPre")}></button>
+                  <button type="button" aria-pressed="true" data-v="stubble" ${T("pStubble")}></button>
+                  <button type="button" aria-pressed="false" data-v="fallow" ${T("pFallow")}></button>
+                  <button type="button" aria-pressed="false" data-v="pre" ${T("pPre")}></button>
                 </div>
+                <p class="dim small" id="preset-hint" aria-live="polite"></p>
               </div>
               <div class="panel">
                 <h3 ${T("product")}></h3>
@@ -75,19 +77,11 @@ function markup() {
               <div class="sens" id="sens"></div>
               <p class="warn small" id="dust-msg" ${T("dustMsg")}></p>
             </div>
-            <div class="grid2">
-              <div class="panel">
-                <h3 ${T("sensTitle")}></h3>
-                <label class="lbl" for="in-sens"><span ${T("sensLbl")}></span>: <b id="sens-v">6</b> / 10</label>
-                <input id="in-sens" type="range" min="1" max="10" value="6">
-                <p class="dim small" ${T("sensHint")}></p>
-              </div>
-              <div class="panel">
-                <h3 ${T("leafTitle")}></h3>
-                <p class="small" ${T("leafHint")}></p>
-                <div class="row"><button type="button" class="cbtn primary" id="btn-leaf" ${T("leafBtn")}></button><button type="button" class="cbtn" id="btn-retest" ${T("retest")}></button></div>
-                <p id="leaf-out" class="toast" role="status" hidden></p>
-              </div>
+            <div class="panel">
+              <h3 ${T("leafTitle")}></h3>
+              <p class="small" ${T("leafHint")}></p>
+              <div class="row"><button type="button" class="cbtn primary" id="btn-leaf" ${T("leafBtn")}></button><button type="button" class="cbtn" id="btn-retest" ${T("retest")}></button></div>
+              <p id="leaf-out" class="toast" role="status" hidden></p>
             </div>
           </div>
 
@@ -195,7 +189,7 @@ export function mount(root, opts) {
   const nf = (n, d = 1) => formatNumber(n, d, lang);
 
   // ---- screens
-  let current = "start", mode = "spot", paused = false, running = false, dusty = true, blocked = -1;
+  let current = "start", mode = "spot", preset = "stubble", paused = false, running = false, dusty = true, blocked = -1;
   function go(name) {
     current = name;
     root.querySelectorAll(".screen").forEach((el) => { el.hidden = el.dataset.s !== name; });
@@ -212,8 +206,11 @@ export function mount(root, opts) {
       g.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", "false"));
       b.setAttribute("aria-pressed", "true");
       if (id === "mode") { mode = b.dataset.v; sprayTitle(); }
+      if (id === "preset") { preset = b.dataset.v; presetHint(); }
     }));
   }
+  // Sensitivity is chosen by a named preset; there is no numbered slider.
+  function presetHint() { $("preset-hint").textContent = s(preset === "stubble" ? "sensStubble" : preset === "fallow" ? "sensFallow" : "sensPre"); }
   function sprayTitle() { $("spray-title").textContent = s("sprayTitle", { mode: s(mode === "spot" ? "modeSpot" : mode === "spotbg" ? "modeSpotBg" : "modeBroad") }); }
 
   // ---- self-test screen
@@ -231,7 +228,6 @@ export function mount(root, opts) {
     $("dust-msg").hidden = !dusty;
   }
   drawSens();
-  $("in-sens").addEventListener("input", () => { $("sens-v").textContent = $("in-sens").value; });
   $("btn-leaf").addEventListener("click", () => { const o = $("leaf-out"); o.hidden = false; o.textContent = s("leafOk"); });
   $("btn-retest").addEventListener("click", () => { dusty = false; drawSens(); const o = $("leaf-out"); o.hidden = false; o.textContent = s("retestOk"); });
   $("btn-dust").addEventListener("click", () => { dusty = true; drawSens(); go("check"); });
@@ -335,11 +331,11 @@ export function mount(root, opts) {
     $("s-area").textContent = nf(ha);
     $("s-share").textContent = Math.round(SAMPLE_SHARE * 100) + "%";
     $("s-saved").textContent = s("litres", { n: nf(broad - used) });
-    $("s-kzt").textContent = "≈" + nf(Math.round(ha * 5500 * saving / 1000) * 1000, 0);
+    $("s-kzt").textContent = "≈" + nf(Math.round(ha * HERBICIDE_COST * saving / 1000) * 1000, 0);
     $("d-speed").textContent = s("kmh", { n: nf(17.6) });
     $("d-used").textContent = s("litres", { n: nf(used) });
     $("d-broad").textContent = s("litres", { n: nf(broad) });
-    $("d-perha").textContent = "≈" + s("kzt", { n: nf(Math.round(5500 * saving / 10) * 10, 0) });
+    $("d-perha").textContent = "≈" + s("kzt", { n: nf(Math.round(HERBICIDE_COST * saving / 10) * 10, 0) });
   }
   function drawMap() {
     const m = $("map"), g = m.getContext("2d"), cols = 56, rows = 30, cw = m.width / cols, ch = m.height / rows;
@@ -372,7 +368,7 @@ export function mount(root, opts) {
     [...sel.options].forEach((o, i) => { o.textContent = s("field" + i); });
     $("st-field").textContent = s("field" + sel.value);
     $("btn-pause").textContent = s(paused ? "resume" : "pause");
-    sprayTitle(); sampleReport(); readouts(); drawField();
+    presetHint(); sprayTitle(); sampleReport(); readouts(); drawField();
   }
   applyText();
 

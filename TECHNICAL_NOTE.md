@@ -32,4 +32,6 @@ GitHub repository → Netlify "Import from Git" → environment variable `TEAM_P
 - No offline mode. A shift typed without signal stays on the page until it is sent, but is lost if the page is closed.
 - Rate-limit counters are read then written, not atomic, and old counters are not cleaned up. Lists load every record. Both are fine at pilot scale, not at thousands of records.
 - Netlify Blobs keeps data in the USA (us-east-2). Before a real launch, Kazakhstan's personal data law requires storing citizens' personal data on servers in Kazakhstan.
-- The demo is generated sample data. Its 1-to-10 sensitivity slider is kept from the earlier prototype, although 6 of 12 respondents found it confusing.
+- Tenge saved in a shift report uses a fixed 6,000 KZT per hectare (a burndown pass, DairyNews 2026a), because the shift log has no price field; the farm's own price is used only in the calculator.
+- Three design choices are the team's judgement, not customer evidence, and the first pilot users will test them: named sensitivity presets instead of a numbered slider (in the demo), an empty calculator, and storing every application.
+- The demo is generated sample data, not hardware.

@@ -108,7 +108,7 @@ test("a shift is logged by the team and its report opens by link without login",
   assert.equal(rep.status, 200);
   const data = await rep.json();
   assert.ok(Math.abs(data.results.saving - 0.35) < 1e-9);
-  assert.equal(data.results.tengeSaved, 385000);
+  assert.equal(data.results.tengeSaved, 420000); // 200 ha x 6,000 KZT x 35%
   assert.equal((await call("GET", "/api/shifts/aaaaaaaaaaaaaaaaaaaa")).status, 404);
 });
 
