@@ -1,5 +1,7 @@
 # OptiSpray Pilot Hub
 
+**Live:** https://strong-malasada-e5acc3.netlify.app
+
 A small bilingual web app (English and Kazakh) for the OptiSpray pilot:
 
 - **Farm owners** check payback with their own figures and apply for a pilot on their own field.

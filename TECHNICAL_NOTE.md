@@ -1,7 +1,7 @@
 # OptiSpray Pilot Hub: technical note
 
-**Live URL:** {{LIVE_URL}} · **Repository:** https://github.com/fols15/OptisprayMVP
-**Test credentials (team area, `/team`):** {{CREDENTIALS}}
+**Live URL:** https://strong-malasada-e5acc3.netlify.app · **Repository:** https://github.com/fols15/Optispray
+**Test credentials (team area, `/team`):** in the copy of this note handed to the lecturer, not in the public repository.
 
 ## Platform
 Netlify, free plan: static files from Netlify's CDN, one serverless function (Node.js 22) for `/api/*`, and Netlify Blobs for storage. No build step and no framework. Every push to `main` on GitHub redeploys the site.
