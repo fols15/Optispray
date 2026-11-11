@@ -123,3 +123,22 @@ test("longest stop is compared with 48 hours", () => {
   assert.equal(x.longestStop, 52);
   assert.equal(x.stopWithinLimit, false);
 });
+
+test("values far too small or too large name the bound", () => {
+  assert.equal(R.checkCalculator({ boom: "24", hectares: "5", cost: "6000" }).issues.hectares, "too_small|10");
+  assert.equal(R.checkCalculator({ boom: "24", hectares: "3000", cost: "50" }).issues.cost, "too_small|500");
+  assert.equal(R.checkCalculator({ boom: "24", hectares: "3000", cost: "250000" }).issues.cost, "too_large|100000");
+  assert.equal(R.checkApplication({ hectares: "9000000" }).errors.hectares, "too_large|300000");
+  assert.equal(R.checkShift({ ...goodShift, broadcastRate: "0.01" }, new Date("2026-06-11T08:00:00Z")).errors.broadcastRate, "too_small|0.1");
+});
+
+test("a number with a thousands separator is read correctly", () => {
+  assert.equal(R.checkCalculator({ boom: "36", hectares: "4 500", cost: "6,000" }).values.hectares, 4500);
+  assert.equal(R.checkCalculator({ boom: "36", hectares: "4,500", cost: "6 000" }).values.cost, 6000);
+});
+
+test("a shift date outside the pilot period is refused", () => {
+  const now = new Date("2026-06-11T08:00:00Z");
+  assert.equal(R.checkShift({ ...goodShift, date: "2025-12-31" }, now).errors.date, "date_old");
+  assert.equal(R.checkShift({ ...goodShift, date: R.PILOT_START }, now).errors.date, undefined);
+});

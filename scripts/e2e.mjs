@@ -63,6 +63,13 @@ async function journey(lang) {
   await page.click('#calc-form button[type="submit"]');
   const nan = await page.locator("#c-ha-msg").innerText();
   ok(lang === "en" ? /digits/.test(nan) : /цифр/.test(nan), `2. non-numeric rejected in ${lang}: "${nan}"`);
+  await page.fill("#c-ha", "5");
+  await page.click('#calc-form button[type="submit"]');
+  const small = await page.locator("#c-ha-msg").innerText();
+  ok((lang === "en" ? /at least 10/.test(small) : /кемінде 10/.test(small)) && (await page.inputValue("#c-ha")) === "5", `far too small: names the bound and keeps the entry: "${small}"`);
+  await page.fill("#c-ha", "3 000");
+  await page.click('#calc-form button[type="submit"]');
+  ok(await page.locator("#calc-result h2").count(), "a number with a thousands separator is accepted");
   await page.fill("#c-ha", "3000");
   await page.click('#calc-form button[type="submit"]');
   main = await text();
@@ -130,11 +137,20 @@ async function journey(lang) {
   const hi = await page.locator("#litresSpot-msg").innerText();
   ok(/41/.test(hi), `saving above 41% refused: "${hi}"`);
   ok(!/62%/.test(await text()), "the refused saving is not displayed");
+  const today = await page.inputValue("#date");
+  await page.fill("#date", "2025-12-31");
   await page.fill("#litresSpot", "260");
+  await page.click('#shift-form button[type="submit"]');
+  const dm = await page.locator("#date-msg").innerText();
+  ok(/2026/.test(dm) && (await page.getAttribute("#date", "aria-invalid")) === "true" && (await page.inputValue("#hectares")) === "200", `date outside the pilot period refused at the field, entries kept: "${dm}"`);
+  await page.fill("#date", today);
+  const pv = await page.locator("#shift-preview").innerText();
+  ok(/1[.,]5/.test(pv) && /48/.test(pv) && /35[.,]0%/.test(pv), "preview shows saving, spot share and longest stop before saving");
   await page.click('#shift-form button[type="submit"]');
   await page.waitForSelector("#report-link");
   const link = await page.inputValue("#report-link");
   ok(/\/report\/[a-z2-9]{20}$/.test(link), "shift saved, report link given");
+  ok(link.startsWith(new URL(BASE).origin + "/report/"), `report link built from the site's own origin: ${link}`);
 
   const owner = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const op = await owner.newPage();
@@ -145,6 +161,8 @@ async function journey(lang) {
   ok(/35[.,]0%/.test(rep) && /90%/.test(rep) && /48/.test(rep) && (lang === "en" ? /420,000/.test(rep) : /420\s000/.test(rep)), "owner opens the report by link without login: 35%, 420,000 KZT");
   await owner.close();
   await page.goto(link); await page.waitForSelector(".checks");
+  ok((await page.inputValue("#report-link")) === link && /(farm owner|шаруашылық иесіне)/.test(await text()), "report page shows the same link next to 'send this link to the farm owner'");
+  ok((await page.locator(".check-verdict").count()) === 3, "each check is marked as meeting it or not");
   await audit("report");
 
   // --- 5. empty states

@@ -14,12 +14,31 @@ export const SPOT_SHARE_TARGET = 0.90;      // share of pass time in spot mode
 export const STOP_LIMIT_HOURS = 48;         // repair promise
 export const REGIONS = ["akmola", "kostanay", "north_kz", "pavlodar", "east_kz", "karaganda", "other"];
 export const MAX_STOPS = 20;
+export const PILOT_START = "2026-01-01";   // first date a shift can be logged; the last is today
+
+// Plausible ranges for every number a user types. Outside them the message
+// names the bound ("enter at least 10"), so a typo is caught, not stored.
+export const LIMITS = {
+  calcHectares:  { min: 10, max: 300_000 },   // bare-soil ha per season
+  calcCost:      { min: 500, max: 100_000 },  // KZT per ha for one pass
+  applyHectares: { min: 10, max: 300_000 },
+  boomWidth:     { min: 6, max: 60 },         // m
+  nozzleSpacing: { min: 10, max: 100 },       // cm
+  shiftHectares: { min: 0.1, max: 3000 },
+  litresSpot:    { min: 0, max: 1_000_000 },
+  broadcastRate: { min: 0.1, max: 500 },      // L/ha
+  spotMinutes:   { min: 0, max: 1440 },
+  totalMinutes:  { min: 1, max: 1440 },
+  stopHours:     { min: 0.1, max: 720 },
+};
 
 // ---------- numbers ----------
 // Accepts digits with spaces as thousands separators (3 100). Whole-number fields
 // also accept commas as thousands separators (3,100). Decimal fields accept one
 // "." or "," as the decimal mark, and reject an ambiguous "1,200".
 // Returns { value } or { code } where code is a key of the "err" strings.
+// Out of range gives "too_small|<min>" or "too_large|<max>": the bound travels
+// with the code so the message can say what to enter.
 export function parseNumber(raw, { integer = false, allowZero = false, min = 0, max = Infinity } = {}) {
   let s = String(raw ?? "").trim().replace(/[\s  ]/g, "");
   if (s === "") return { code: "empty" };
@@ -39,8 +58,8 @@ export function parseNumber(raw, { integer = false, allowZero = false, min = 0, 
   const value = Number(s);
   if (!Number.isFinite(value)) return { code: "nan" };
   if (value === 0 && !allowZero) return { code: "zero" };
-  if (value < min) return { code: "too_small" };
-  if (value > max) return { code: "too_large" };
+  if (value < min) return { code: `too_small|${min}` };
+  if (value > max) return { code: `too_large|${max}` };
   return { value };
 }
 
@@ -69,9 +88,9 @@ export function checkCalculator({ boom, hectares, cost }) {
   const issues = {};
   const b = Number(boom);
   if (!(b === 24 || b === 36)) issues.boom = "choose";
-  const ha = parseNumber(hectares, { integer: true, max: 300_000 });
+  const ha = parseNumber(hectares, { integer: true, ...LIMITS.calcHectares });
   if (ha.code) issues.hectares = ha.code;
-  const c = parseNumber(cost, { integer: true, max: 100_000 });
+  const c = parseNumber(cost, { integer: true, ...LIMITS.calcCost });
   if (c.code) issues.cost = c.code;
   return { issues, values: { boom: b, hectares: ha.value, cost: c.value } };
 }
@@ -102,10 +121,10 @@ export function checkApplication(input = {}) {
   const put = (key, r) => { if (r.code) errors[key] = r.code; else value[key] = r.value; };
   put("name", text(input.name, { minLen: 2, maxLen: 100 }));
   put("region", REGIONS.includes(input.region) ? { value: input.region } : { code: "choose" });
-  put("hectares", parseNumber(input.hectares, { integer: true, max: 300_000 }));
+  put("hectares", parseNumber(input.hectares, { integer: true, ...LIMITS.applyHectares }));
   put("sprayer", text(input.sprayer, { minLen: 2, maxLen: 100 }));
-  put("boomWidth", parseNumber(input.boomWidth, { integer: true, min: 6, max: 60 }));
-  put("nozzleSpacing", parseNumber(input.nozzleSpacing, { integer: true, min: 10, max: 100 }));
+  put("boomWidth", parseNumber(input.boomWidth, { integer: true, ...LIMITS.boomWidth }));
+  put("nozzleSpacing", parseNumber(input.nozzleSpacing, { integer: true, ...LIMITS.nozzleSpacing }));
   put("contact", checkContact(input.contact));
   return { errors, value, ok: Object.keys(errors).length === 0 };
 }
@@ -135,7 +154,7 @@ function checkDate(raw, today) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return { code: "date" };
   const d = new Date(s + "T00:00:00Z");
   if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s) return { code: "date" };
-  if (s < "2026-01-01") return { code: "date_old" };
+  if (s < PILOT_START) return { code: "date_old" };
   const limit = new Date(today.getTime() + 36 * 3600 * 1000).toISOString().slice(0, 10);
   if (s > limit) return { code: "date_future" };
   return { value: s };
@@ -146,18 +165,18 @@ export function checkShift(input = {}, today = new Date()) {
   const put = (key, r) => { if (r.code) errors[key] = r.code; else value[key] = r.value; };
   put("field", text(input.field, { maxLen: 80 }));
   put("date", checkDate(input.date, today));
-  put("hectares", parseNumber(input.hectares, { max: 3000 }));
-  put("litresSpot", parseNumber(input.litresSpot, { allowZero: true, max: 1_000_000 }));
-  put("broadcastRate", parseNumber(input.broadcastRate, { max: 500 }));
-  put("spotMinutes", parseNumber(input.spotMinutes, { integer: true, allowZero: true, max: 1440 }));
-  put("totalMinutes", parseNumber(input.totalMinutes, { integer: true, max: 1440 }));
+  put("hectares", parseNumber(input.hectares, LIMITS.shiftHectares));
+  put("litresSpot", parseNumber(input.litresSpot, { allowZero: true, ...LIMITS.litresSpot }));
+  put("broadcastRate", parseNumber(input.broadcastRate, LIMITS.broadcastRate));
+  put("spotMinutes", parseNumber(input.spotMinutes, { integer: true, allowZero: true, ...LIMITS.spotMinutes }));
+  put("totalMinutes", parseNumber(input.totalMinutes, { integer: true, ...LIMITS.totalMinutes }));
 
   const rawStops = Array.isArray(input.stops) ? input.stops : [];
   const stops = [], stopErrors = [];
   if (rawStops.length > MAX_STOPS) errors.stops = "too_many";
   rawStops.slice(0, MAX_STOPS).forEach((st, i) => {
     const what = text(st && st.what, { required: false, maxLen: 80 });
-    const hours = parseNumber(st && st.hours, { max: 720 });
+    const hours = parseNumber(st && st.hours, LIMITS.stopHours);
     const e = {};
     if (what.code) e.what = what.code;
     if (hours.code) e.hours = hours.code;

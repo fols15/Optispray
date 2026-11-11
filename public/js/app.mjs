@@ -20,10 +20,26 @@ function t(key, vars = {}) {
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const fmt = (n, d = 0) => formatNumber(n, d, lang);
 const fmtDate = (iso) => { const [y, m, d] = iso.slice(0, 10).split("-"); return t("date.format", { y, d: +d, month: t("month." + +m) }); };
-const fmtStamp = (iso) => { const x = new Date(iso); const p2 = (n) => String(n).padStart(2, "0"); return `${fmtDate(`${x.getFullYear()}-${p2(x.getMonth() + 1)}-${p2(x.getDate())}`)}, ${p2(x.getHours())}:${p2(x.getMinutes())}`; };
+const fmtStamp = (iso) => { const x = new Date(iso); const p2 = (n) => String(n).padStart(2, "0"); return t("date.stamp", { date: fmtDate(`${x.getFullYear()}-${p2(x.getMonth() + 1)}-${p2(x.getDate())}`), time: `${p2(x.getHours())}:${p2(x.getMinutes())}` }); };
 // one decimal, rounded down, so 89.96% shows as 89.9% and never looks like it meets a 90% target
 const pct = (x) => t("common.pct", { n: fmt(Math.floor(x * 1000 + 1e-9) / 10, 1) });
 const kzt = (n) => t("common.kzt", { n: fmt(Math.round(n)) });
+// A report link is built from wherever the site is running, never from a fixed host.
+const reportUrl = (id) => new URL(`/report/${encodeURIComponent(id)}`, location.origin).href;
+
+// Error codes can carry a bound: "too_small|10" -> "This is too small: enter at least 10."
+function errText(code) {
+  const [c, n] = String(code).split("|");
+  const vars = n === undefined ? {} : { n: fmt(Number(n), n.includes(".") ? 1 : 0) };
+  if (c === "date_old") vars.date = fmtDate(R.PILOT_START);
+  return t("err." + c, vars);
+}
+// Fill a whole-sentence template and make one of its values bold. Word order stays in the strings file.
+function tBold(key, vars, boldKey) {
+  const mark = "\u0000";
+  const [a, b = ""] = t(key, { ...vars, [boldKey]: mark }).split(mark);
+  return `${esc(a)}<b>${esc(vars[boldKey])}</b>${esc(b)}`;
+}
 
 function setLang(l) {
   lang = l;
@@ -59,7 +75,7 @@ const ICON = {
 };
 
 function msgHtml(id, error, prompt) {
-  if (error) return `<p class="msg msg-err" id="${id}-msg">${ICON.err}<span>${esc(t("err." + error))}</span></p>`;
+  if (error) return `<p class="msg msg-err" id="${id}-msg">${ICON.err}<span>${esc(errText(error))}</span></p>`;
   if (prompt) return `<p class="msg msg-prompt" id="${id}-msg">${ICON.info}<span>${esc(prompt)}</span></p>`;
   return `<p class="msg" id="${id}-msg" hidden></p>`;
 }
@@ -263,9 +279,9 @@ function calcMessages() {
 function calcResultOrPrompt() {
   const { issues, values } = R.checkCalculator(state.calc);
   if (Object.keys(issues).length) {
-    const k = issues.boom ? "calc.promptBoom" : issues.hectares ? (["empty", "zero"].includes(issues.hectares) ? "calc.promptHa" : "err." + issues.hectares)
-      : (issues.cost === "empty" ? "calc.promptCost" : "err." + issues.cost);
-    return `<p class="msg msg-prompt">${ICON.info}<span>${esc(t(k))}</span></p>`;
+    const msg = issues.boom ? t("calc.promptBoom") : issues.hectares ? (["empty", "zero"].includes(issues.hectares) ? t("calc.promptHa") : errText(issues.hectares))
+      : (issues.cost === "empty" ? t("calc.promptCost") : errText(issues.cost));
+    return `<p class="msg msg-prompt">${ICON.info}<span>${esc(msg)}</span></p>`;
   }
   return calcResult(values);
 }
@@ -442,28 +458,32 @@ function reportsView() {
     ${listState("shifts", "/api/shifts", (items) => !items.length
       ? `<div class="empty card"><p>${esc(t("reports.empty"))}</p></div>`
       : `<ul class="items">${items.map((s) => `<li class="card item">
-          <p><a href="/report/${esc(s.id)}" data-link>${esc(s.field)} · ${esc(fmtDate(s.date))}</a></p>
-          <p class="muted">${esc(t("common.ha", { n: fmt(s.hectares, 1) }))} · ${esc(t("report.saving"))} ${esc(pct(s.results.saving))}</p></li>`).join("")}</ul>`)}`;
+          <p><a href="/report/${esc(s.id)}" data-link>${esc(t("report.subtitle", { field: s.field, date: fmtDate(s.date) }))}</a></p>
+          <p class="muted">${esc(t("reports.item", { ha: t("common.ha", { n: fmt(s.hectares, 1) }), saving: pct(s.results.saving) }))}</p></li>`).join("")}</ul>`)}`;
 }
 
 // ---- shift log
 function shiftPreview(s) {
-  const r = R.checkShift({ ...s, field: s.field || "x", date: s.date || "2026-06-01", stops: [] });
+  // The date and field name do not change the figures, so they are not needed for the preview.
+  const r = R.checkShift({ ...s, field: s.field || "x", date: R.PILOT_START, stops: s.stops });
   const keys = ["hectares", "litresSpot", "broadcastRate", "spotMinutes", "totalMinutes"];
   if (keys.some((k) => r.errors[k])) {
     const special = r.errors.litresSpot === "saving_too_high" || r.errors.litresSpot === "saving_negative" ? r.errors.litresSpot
       : r.errors.spotMinutes === "spot_gt_total" ? "spot_gt_total" : null;
-    return `<p class="msg msg-prompt">${ICON.info}<span>${esc(special ? t("err." + special) : t("shift.previewWait"))}</span></p>`;
+    return `<p class="msg msg-prompt">${ICON.info}<span>${esc(special ? errText(special) : t("shift.previewWait"))}</span></p>`;
   }
-  const res = R.shiftResults(r.value);
-  return `<dl class="kv"><dt>${esc(t("report.saving"))}</dt><dd>${esc(pct(res.saving))} (${esc(t("report.savingTarget"))})</dd>
-    <dt>${esc(t("report.spot"))}</dt><dd>${esc(pct(res.spotShare))} (${esc(t("report.spotTarget"))})</dd>
+  const res = R.shiftResults(r.value);   // stops with an unfinished duration are left out until they are complete
+  const vt = (value, target) => esc(t("report.valueTarget", { value, target }));
+  const stop = res.longestStop === null ? t("report.noStops") : t("common.hours", { n: fmt(res.longestStop, 1) });
+  return `<dl class="kv"><dt>${esc(t("report.saving"))}</dt><dd>${vt(pct(res.saving), t("report.savingTarget"))}</dd>
+    <dt>${esc(t("report.spot"))}</dt><dd>${vt(pct(res.spotShare), t("report.spotTarget"))}</dd>
+    <dt>${esc(t("report.stop"))}</dt><dd>${vt(stop, t("report.stopTarget"))}</dd>
     <dt>${esc(t("report.tenge"))}</dt><dd>${esc(kzt(res.tengeSaved))}</dd></dl>`;
 }
 
 function shiftView() {
   if (state.shiftStatus === "done") {
-    const link = `${location.origin}/report/${state.shiftId}`;
+    const link = reportUrl(state.shiftId);
     return `<h1 tabindex="-1">${esc(t("shift.doneTitle"))}</h1>${teamTabs("/team/shift")}
       <div class="card done">${ICON.ok}<p>${esc(t("shift.doneText"))}</p>
         <label class="sr-only" for="report-link">${esc(t("report.title"))}</label>
@@ -493,7 +513,7 @@ function shiftView() {
       ${field({ id: "totalMinutes", label: t("shift.totalMin"), value: s.totalMinutes, error: e.totalMinutes, inputmode: "numeric" })}
       <fieldset class="field stops"><legend>${esc(t("shift.stops"))}</legend>
         <p class="hint">${esc(t("shift.stopsHint"))}</p>
-        ${e.stops ? `<p class="msg msg-err">${ICON.err}<span>${esc(t("err." + e.stops))}</span></p>` : ""}
+        ${e.stops ? `<p class="msg msg-err">${ICON.err}<span>${esc(errText(e.stops))}</span></p>` : ""}
         ${stops || `<p class="muted">${esc(t("shift.noStops"))}</p>`}
         <button type="button" class="btn" id="add-stop">${esc(t("shift.addStop"))}</button>
       </fieldset>
@@ -580,13 +600,14 @@ function reportView(id) {
   }
   const s = r.shift, x = r.results;
   const check = (label, value, target, ok) => `<li class="check ${ok ? "check-ok" : "check-bad"}">${ok ? ICON.ok : ICON.warn}
-      <div><p class="check-label">${esc(label)}: <b>${esc(value)}</b> <span class="muted">(${esc(target)})</span></p>
+      <div><p class="check-label">${tBold("report.checkLine", { label, value, target }, "value")}</p>
       <p class="check-verdict">${esc(ok ? t("report.yes") : t("report.no"))}</p></div></li>`;
   const stopCheck = x.longestStop === null
-    ? `<li class="check check-ok">${ICON.ok}<div><p class="check-label">${esc(t("report.stop"))}: <b>${esc(t("report.noStops"))}</b> <span class="muted">(${esc(t("report.stopTarget"))})</span></p></div></li>`
+    ? `<li class="check check-ok">${ICON.ok}<div><p class="check-label">${tBold("report.checkLine", { label: t("report.stop"), value: t("report.noStops"), target: t("report.stopTarget") }, "value")}</p>
+      <p class="check-verdict">${esc(t("report.yes"))}</p></div></li>`
     : check(t("report.stop"), t("common.hours", { n: fmt(x.longestStop, 1) }), t("report.stopTarget"), x.stopWithinLimit);
   return `<h1 tabindex="-1">${esc(t("report.title"))}</h1>
-    <p class="lead">${esc(s.field)} · ${esc(fmtDate(s.date))}</p>
+    <p class="lead">${esc(t("report.subtitle", { field: s.field, date: fmtDate(s.date) }))}</p>
     <p class="muted">${esc(t("report.readOnly"))}</p>
     <dl class="figures">
       <div><dt>${esc(t("report.ha"))}</dt><dd>${esc(t("common.ha", { n: fmt(s.hectares, 1) }))}</dd></div>
@@ -602,11 +623,12 @@ function reportView(id) {
       ${stopCheck}
     </ul>
     ${s.stops.length ? `<h2>${esc(t("report.stopsTitle"))}</h2><ul class="plain">${s.stops.map((st) =>
-      `<li>${esc(st.what || t("report.stopNoText"))} · ${esc(t("common.hours", { n: fmt(st.hours, 1) }))}</li>`).join("")}</ul>` : ""}
+      `<li>${esc(t("report.stopItem", { what: st.what || t("report.stopNoText"), hours: t("common.hours", { n: fmt(st.hours, 1) }) }))}</li>`).join("")}</ul>` : ""}
     <details class="how"><summary>${esc(t("report.how"))}</summary><ul class="plain">
       <li>${esc(t("report.how1"))}</li><li>${esc(t("report.how2"))}</li><li>${esc(t("report.how3"))}</li></ul></details>
+    <p>${esc(t("shift.doneText"))}</p>
     <label class="sr-only" for="report-link">${esc(t("report.title"))}</label>
-    <input id="report-link" class="linkbox" readonly value="${esc(location.href)}">
+    <input id="report-link" class="linkbox" readonly value="${esc(reportUrl(id))}">
     <button type="button" class="btn" id="copy-link">${esc(t("common.copy"))}</button>
     <p id="copy-status" class="muted" role="status"></p>`;
 }
