@@ -1,6 +1,6 @@
 # OptiSpray Pilot Hub: technical note
 
-**Live URL:** {{LIVE_URL}} · **Repository:** https://github.com/fols15/optispray-pilot-hub
+**Live URL:** {{LIVE_URL}} · **Repository:** https://github.com/fols15/OptisprayMVP
 **Test credentials (team area, `/team`):** {{CREDENTIALS}}
 
 ## Platform
